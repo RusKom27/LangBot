@@ -1,0 +1,13 @@
+[package]
+name = "LangBot"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+tokio = { version = "1", features = ["full"] }
+frankenstein = { version = "0.20", default-features = false, features = ["async-http-client"] }
+mongodb = { version = "2.3.0" }
+chrono = "0.4.22"
+chrono-tz = "0.6.3"
