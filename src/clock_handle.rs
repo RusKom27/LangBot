@@ -1,6 +1,7 @@
 
-use chrono::{Duration, NaiveDateTime, NaiveTime, Timelike, Utc};
+use chrono::{DateTime, Duration, NaiveDateTime, NaiveTime, Timelike, Utc};
 use chrono_tz::Europe::Kiev;
+use serde::{self, Serialize, Deserialize};
 
 pub struct Clock {
     interval: NaiveTime,
@@ -29,6 +30,12 @@ impl Clock {
     
     pub fn get_current_datetime() -> NaiveDateTime {
         Utc::now().with_timezone(&Kiev).naive_utc()
+    }
+
+    pub fn set_interval(&mut self, interval: u32) {
+        self.interval = NaiveTime::from_num_seconds_from_midnight_opt(
+            interval, 0
+        ).expect("Get interval from int error!");
     }
 
     fn add_interval_time_to_time(time: NaiveDateTime, interval_time: NaiveTime) -> NaiveDateTime {

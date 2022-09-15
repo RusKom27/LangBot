@@ -11,3 +11,5 @@ frankenstein = { version = "0.20", default-features = false, features = ["async-
 mongodb = { version = "2.3.0" }
 chrono = "0.4.22"
 chrono-tz = "0.6.3"
+serde = "1.0.144"
+serde_with = "2.0.1"
