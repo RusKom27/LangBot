@@ -32,13 +32,11 @@ impl Clock {
         Utc::now().with_timezone(&Kiev).naive_utc()
     }
 
-    pub fn set_interval(&mut self, interval: u32) {
-        self.interval = NaiveTime::from_num_seconds_from_midnight_opt(
-            interval, 0
-        ).expect("Get interval from int error!");
+    pub fn set_interval(&mut self, interval: NaiveTime) {
+        self.interval = interval
     }
 
-    fn add_interval_time_to_time(time: NaiveDateTime, interval_time: NaiveTime) -> NaiveDateTime {
+    pub fn add_interval_time_to_time(time: NaiveDateTime, interval_time: NaiveTime) -> NaiveDateTime {
         time
             + Duration::hours(interval_time.hour() as i64)
             + Duration::minutes(interval_time.minute() as i64)

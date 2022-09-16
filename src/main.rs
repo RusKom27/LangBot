@@ -22,8 +22,6 @@ async fn main() {
     let database_handle = DatabaseHandle::new("LangBotDataBase").await;
     let mut clock_handle = Clock::new(NaiveTime::from_hms(0,0,30));
 
-    let mut next_user_word_update:Option<Box<TelegramUser>> = None;
-
     loop {
         let result = telegram_api.get_updates(&update_params).await;
 
@@ -37,7 +35,6 @@ async fn main() {
                             database_handle.database.clone(),
                             message.from.unwrap().id
                         ).await;
-
                         let send_message_params = SendMessageParams::builder()
                             .chat_id(message.chat.id)
                             .text(format!("hello{}", message.chat.id))
@@ -52,23 +49,23 @@ async fn main() {
                 }
             }
             Err(error) => {
-                println!("Failed to get updates: {:?}", error);
+                println!("Failed to get updates: {:#?}", error);
             }
         }
 
 
         if clock_handle.check_clock().await {
-            match next_user_word_update {
-                Some(user) => {
+            match TelegramUser::get_with_closer_update(database_handle.database.clone()).await {
+                Some(mut user) => {
                     send_message(
                         telegram_api.clone(), user.clone().user_id
                     ).await;
+                    user.change_next_word_update_datetime(database_handle.database.clone()).await;
 
-                    next_user_word_update = Some(Box::new(TelegramUser::get_with_closer_update(
-                        database_handle.database.clone()
-                    ).await.unwrap()));
                     clock_handle.set_interval(
-                        next_user_word_update.clone().expect("User not found").word_update_interval
+                        TelegramUser::get_with_closer_update(
+                            database_handle.database.clone()
+                        ).await.expect("Error get closer update!").next_word_update_datetime.parse().unwrap()
                     );
                 },
                 None => continue

@@ -1,18 +1,21 @@
-use chrono::{NaiveDateTime};
+use chrono::{NaiveDateTime, NaiveTime};
 use serde::{self, Serialize, Deserialize};
 use mongodb::bson::{DateTime, doc, Document, from_document};
 use mongodb::{Collection, Cursor, Database};
-use mongodb::options::FindOptions;
+use mongodb::options::{FindOptions, UpdateModifications};
 
 use crate::clock_handle::{ Clock };
 use crate::DatabaseHandle;
+
+const COLLECTION_NAME: &str = "telegram_users";
 
 #[derive(Debug,Clone, Deserialize, Serialize)]
 pub struct TelegramUser {
     pub user_id: String,
     pub chosen_languages: Vec<String>,
-    pub word_update_interval: u32,
-    last_word_update_datetime: String,
+    word_update_interval: String,
+    prev_word_update_datetime: String,
+    pub next_word_update_datetime: String,
     creating_datetime: String,
 }
 
@@ -21,20 +24,25 @@ impl TelegramUser {
         database: Database,
         user_id: String,
     ) -> Option<Self> {
-        let collection:Collection<Document> = database.collection("telegram_users");
-        if DatabaseHandle::value_is_exists(collection.clone(), "user_id", &user_id).await {
+        let collection:Collection<Document> = database.collection(COLLECTION_NAME);
+        if !DatabaseHandle::value_is_exists(collection.clone(), "user_id", &user_id).await {
             let model = Self {
                 user_id,
                 chosen_languages: Vec::new(),
-                word_update_interval: 10,
-                last_word_update_datetime: Clock::get_current_datetime().to_string(),
+                word_update_interval: NaiveTime::from_hms(0,0,10).to_string(),
+                prev_word_update_datetime: Clock::get_current_datetime().to_string(),
+                next_word_update_datetime: Clock::add_interval_time_to_time(
+                    Clock::get_current_datetime(),
+                    NaiveTime::from_hms(0,0,10)
+                ).to_string(),
                 creating_datetime: Clock::get_current_datetime().to_string()
             };
             collection.clone_with_type().insert_one(doc! {
                 "user_id": &model.user_id,
                 "chosen_languages": &model.chosen_languages,
                 "word_update_interval": &model.word_update_interval.to_string(),
-                "last_word_update_datetime": &model.last_word_update_datetime.to_string(),
+                "prev_word_update_datetime": &model.prev_word_update_datetime.to_string(),
+                "next_word_update_datetime": &model.next_word_update_datetime.to_string(),
                 "creating_datetime": &model.creating_datetime.to_string()
             }, None).await.expect("Error creating telegram user document");
             Some(model)
@@ -45,7 +53,7 @@ impl TelegramUser {
 
     pub async fn get_all(database: Database) -> Vec<TelegramUser> {
         let mut all_users:Vec<TelegramUser> = Vec::new();
-        let collection:Collection<Document> = database.collection("telegram_users");
+        let collection:Collection<Document> = database.collection(COLLECTION_NAME);
 
         let mut users_cursor: Cursor<Document> = collection.find(
             None,
@@ -63,27 +71,34 @@ impl TelegramUser {
     }
 
     pub async fn get_with_closer_update(database: Database) -> Option<TelegramUser> {
-        let collection:Collection<Document> = database.collection("telegram_users");
-
-        let find_options = FindOptions::builder()
-            .sort(doc!{"word_update_interval": 1})
-            .build();
-
-        let mut users_cursor: Cursor<Document> = collection.find(
-            None,
-            find_options
-        ).await.unwrap();
-
-        while users_cursor.advance().await.expect("Get users error") {
-            let user:TelegramUser = from_document(
-                users_cursor.deserialize_current().expect("Users cursor deserialization error!")
-            ).expect("Get data from user document error!");
-            return Some(user)
+        let mut users = TelegramUser::get_all(database).await;
+        if users.len() > 0 {
+            users.sort_by(|a,b|
+                a.next_word_update_datetime.cmp(&b.next_word_update_datetime)
+            );
+            Some(users[0].clone())
+        } else {
+            None
         }
-        None
+
     }
 
-    pub async fn change_last_word_update(database: Database, user: TelegramUser) {
+    pub async fn change_next_word_update_datetime(&mut self, database: Database) {
+        let collection:Collection<Document> = database.collection(COLLECTION_NAME);
+        self.prev_word_update_datetime = Clock::get_current_datetime().to_string();
+        self.next_word_update_datetime = Clock::add_interval_time_to_time(
+            Clock::get_current_datetime(),
+            self.word_update_interval.parse().unwrap()
+        ).to_string();
+        let update_modifications = UpdateModifications::from(
+            doc!{"prev_word_update_datetime": self.prev_word_update_datetime.to_string(),
+                "next_word_update_datetime": self.next_word_update_datetime.to_string()}
+        );
+        collection.find_one_and_update(
+            doc! {"user_id": self.user_id.clone()},
+            update_modifications,
+            None
+        ).await.expect("Error find and update");
 
     }
 
