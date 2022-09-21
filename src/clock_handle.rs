@@ -1,26 +1,37 @@
-
+use tokio::sync::mpsc;
+use tokio::sync::mpsc::{Receiver};
 use chrono::{DateTime, Duration, NaiveDateTime, NaiveTime, Timelike, Utc};
 use chrono_tz::Europe::Kiev;
 use serde::{self, Serialize, Deserialize};
 
+#[derive(Clone)]
 pub struct Clock {
-    interval: NaiveTime,
     prev_time: NaiveDateTime,
+    next_time: NaiveDateTime,
 }
 
 impl Clock {
-    pub fn new(interval: NaiveTime) -> Self {
+    pub fn new() -> Self {
         Self {
-            interval,
             prev_time: Self::get_current_datetime(),
+            next_time: Self::get_current_datetime(),
         }
     }
 
+    pub async fn start(&mut self) -> Receiver<bool> {
+        let (sender, mut receiver) = mpsc::channel(32);
+        let mut clock = self.clone();
+        tokio::spawn(async move {
+            loop {
+                sender.send(clock.check_clock().await).await.expect("Error send clock tick!");
+            }
+        });
+        receiver
+    }
+
     pub async fn check_clock(&mut self) -> bool {
-        let interval = self.interval;
         let now = Self::get_current_datetime();
-        let next_time = Self::add_interval_time_to_time(self.prev_time.clone(), interval);
-        if next_time < now {
+        if self.next_time < now {
             self.prev_time = now;
             true
         } else {
@@ -32,8 +43,8 @@ impl Clock {
         Utc::now().with_timezone(&Kiev).naive_utc()
     }
 
-    pub fn set_interval(&mut self, interval: NaiveTime) {
-        self.interval = interval
+    pub fn set_next_update(&mut self, next_time: NaiveDateTime) {
+        self.next_time = next_time;
     }
 
     pub fn add_interval_time_to_time(time: NaiveDateTime, interval_time: NaiveTime) -> NaiveDateTime {

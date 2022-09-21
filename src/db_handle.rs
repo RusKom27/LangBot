@@ -2,27 +2,23 @@ pub mod models;
 pub mod validation;
 
 use mongodb::{ options::ClientOptions, Client, Database, Cursor};
-
+use async_trait::async_trait;
 use std::env;
 
-
-pub struct DatabaseHandle {
-    pub database: Database
+#[async_trait]
+pub trait DatabaseHandle {
+    async fn connect(database_name: &str) -> Database;
 }
 
-impl DatabaseHandle {
-    pub async fn new(database_name: &str) -> Self {
+#[async_trait]
+impl DatabaseHandle for Database {
+    async fn connect(database_name: &str) -> Database {
         let client_options = ClientOptions::parse(
             env::var("MONGO_URL").expect("Mongo url not exist!")
         ).await.expect("Auth is wrong!");
-        let client = Client::with_options(client_options)
-            .expect("Client was not created");
-        Self {
-            database: client.database(database_name)
-        }
+        Client::with_options(client_options)
+            .expect("Client was not created")
+            .database(database_name)
     }
-
-
-
 }
 
