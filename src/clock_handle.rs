@@ -18,17 +18,6 @@ impl Clock {
         }
     }
 
-    pub async fn start(&mut self) -> Receiver<bool> {
-        let (sender, mut receiver) = mpsc::channel(32);
-        let mut clock = self.clone();
-        tokio::spawn(async move {
-            loop {
-                sender.send(clock.check_clock().await).await.expect("Error send clock tick!");
-            }
-        });
-        receiver
-    }
-
     pub async fn check_clock(&mut self) -> bool {
         let now = Self::get_current_datetime();
         if self.next_time < now {
@@ -52,6 +41,7 @@ impl Clock {
             + Duration::hours(interval_time.hour() as i64)
             + Duration::minutes(interval_time.minute() as i64)
             + Duration::seconds(interval_time.second() as i64)
-
     }
+    
+    
 }
