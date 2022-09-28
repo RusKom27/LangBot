@@ -3,7 +3,6 @@ mod env_vars;
 mod telegram_api_handle;
 mod db_handle;
 mod app;
-mod user_command_handle;
 mod state_handle;
 
 use crate::app::App;

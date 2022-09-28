@@ -1,6 +1,6 @@
-
+use std::borrow::BorrowMut;
 use chrono::NaiveDateTime;
-use frankenstein::{AsyncApi, AsyncTelegramApi, GetUpdatesParams, Message, SendMessageParams, UpdateContent};
+use frankenstein::{AsyncApi, AsyncTelegramApi, GetUpdatesParams, UpdateContent};
 use mongodb::Database;
 
 use crate::env_vars::get_vars;
@@ -8,7 +8,6 @@ use crate::clock_handle::Clock;
 use crate::db_handle::DatabaseHandle;
 use crate::db_handle::models::TelegramUser;
 use crate::telegram_api_handle::TelegramApiHandle;
-use crate::user_command_handle::UserCommand;
 
 
 #[derive(Clone)]
@@ -39,24 +38,18 @@ impl App {
                 Ok(response) => {
                     for update in response.result {
                         if let UpdateContent::Message(message) = update.content {
-                            match TelegramUser::new(self.database_api.clone(), message.clone().from.unwrap().id.to_string()).await {
-                                Some(mut user) =>
-                                    match message.clone().parse_command() {
-                                        Some(state) =>
-                                            user.change_state(state, self.database_api.clone()).await,
-                                        None =>
-                                            user.change_params(&message, self.database_api.clone()).await,
-                                    },
+                            match TelegramUser::new(
+                                self.database_api.clone(),
+                                message.clone().from.unwrap().id.to_string()
+                            ).await {
+                                    Some(mut user) =>
+                                        self.telegram_api.message_handle(
+                                            message.clone(),
+                                            user.borrow_mut(),
+                                            self.database_api.clone()
+                                        ).await,
                                 None => (),
-
                             }
-
-
-                            let send_message_params = SendMessageParams::builder()
-                                .chat_id(message.clone().chat.id)
-                                .text(format!("{:?}", message.clone().parse_command()))
-                                .build();
-                            self.telegram_api.send_message(&send_message_params).await.expect("Fail to send the message!");
 
                             update_params = update_params_builder
                                 .clone()

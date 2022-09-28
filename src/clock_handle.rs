@@ -1,8 +1,6 @@
-use tokio::sync::mpsc;
-use tokio::sync::mpsc::{Receiver};
-use chrono::{DateTime, Duration, NaiveDateTime, NaiveTime, Timelike, Utc};
+
+use chrono::{Duration, NaiveDateTime, NaiveTime, Timelike, Utc};
 use chrono_tz::Europe::Kiev;
-use serde::{self, Serialize, Deserialize};
 
 #[derive(Clone)]
 pub struct Clock {

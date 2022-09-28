@@ -8,6 +8,7 @@ use mongodb::options::{UpdateModifications};
 use crate::clock_handle::{ Clock };
 use crate::db_handle::validation::DatabaseValidation;
 use crate::state_handle::{UserState};
+use crate::state_handle::UserState::Idle;
 
 const COLLECTION_NAME: &str = "telegram_users";
 
@@ -54,29 +55,37 @@ impl TelegramUser {
         }
     }
 
-    pub async fn change_state(&mut self, state: UserState, database: Database) {
+    pub async fn change_state(&mut self, state: UserState, database: Database) -> Option<String> {
         let collection:Collection<TelegramUser> = database.collection(COLLECTION_NAME);
         self.current_state = state;
         self.change_field(&collection, "current_state", self.current_state.to_string()).await;
+        match self.current_state {
+            UserState::Idle => None,
+            UserState::IntervalChanging => None,
+            UserState::LanguageChanging => None,
+        }
     }
 
-    pub async fn change_params(&mut self, message: &Message, database: Database) {
+    pub async fn change_params(&mut self, message: &Message, database: Database) -> Option<String> {
         let collection:Collection<TelegramUser> = database.collection(COLLECTION_NAME);
         match self.current_state {
-            UserState::Idle => (),
+            UserState::Idle => None,
             UserState::IntervalChanging => {
-                let interval_string = message.clone().text.unwrap();
+                let mut interval_string = message.clone().text.unwrap();
                 let interval_vec: Vec<&str> = interval_string.split(":").collect();
                 match interval_vec.len() {
-                    3 => {
-                        self.word_update_interval = interval_string.clone();
-                        self.change_field(&collection, "word_update_interval", interval_string.clone()).await;
-                    }
-                    _ => ()
+                    3 => (),
+                    2 => interval_string = String::from("00:") + &*message.clone().text.unwrap(),
+                    1 => interval_string = String::from("00:00:") + &*message.clone().text.unwrap(),
+                    _ => return Some(String::from("Interval changing error!"))
                 }
-
+                self.word_update_interval = interval_string.clone();
+                self.change_field(&collection, "word_update_interval", interval_string.clone()).await;
+                self.change_next_word_update_datetime(database.clone()).await;
+                self.change_state(Idle, database.clone()).await;
+                Some(String::from("Interval was changed!"))
             },
-            UserState::LanguageChanging => (),
+            UserState::LanguageChanging => None,
         }
     }
 

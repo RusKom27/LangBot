@@ -1,7 +1,7 @@
 pub mod models;
 pub mod validation;
 
-use mongodb::{ options::ClientOptions, Client, Database, Cursor};
+use mongodb::{ options::ClientOptions, Client, Database};
 use async_trait::async_trait;
 use std::env;
 
