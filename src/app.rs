@@ -3,7 +3,7 @@ use chrono::NaiveDateTime;
 use frankenstein::{AsyncApi, AsyncTelegramApi, GetUpdatesParams, UpdateContent};
 use mongodb::Database;
 
-use crate::env_vars::get_vars;
+use crate::env_vars::set_vars;
 use crate::clock_handle::Clock;
 use crate::db_handle::DatabaseHandle;
 use crate::db_handle::models::TelegramUser;
@@ -19,7 +19,7 @@ pub struct App {
 
 impl App {
     pub async fn new(database_name: &str) -> Self {
-        get_vars();
+        set_vars();
         let app = Self {
             telegram_api: AsyncApi::connect(),
             clock_api: Clock::new(),

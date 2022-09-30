@@ -4,6 +4,7 @@ mod telegram_api_handle;
 mod db_handle;
 mod app;
 mod state_handle;
+mod translator_handle;
 
 use crate::app::App;
 

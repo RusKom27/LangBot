@@ -9,6 +9,7 @@ use crate::clock_handle::{ Clock };
 use crate::db_handle::validation::DatabaseValidation;
 use crate::state_handle::{UserState};
 use crate::state_handle::UserState::Idle;
+use crate::translator_handle::Translator;
 
 const COLLECTION_NAME: &str = "telegram_users";
 
@@ -32,11 +33,11 @@ impl TelegramUser {
                 let model = Self {
                     user_id,
                     chosen_languages: Vec::new(),
-                    word_update_interval: NaiveTime::from_hms(0, 0, 10).to_string(),
+                    word_update_interval: NaiveTime::from_hms(10, 0, 0).to_string(),
                     prev_word_update_datetime: Clock::get_current_datetime().format("%Y-%m-%d %H:%M:%S").to_string(),
                     next_word_update_datetime: Clock::add_interval_time_to_time(
                         Clock::get_current_datetime(),
-                        NaiveTime::from_hms(0, 0, 10)
+                        NaiveTime::from_hms(10, 0, 0)
                     ).format("%Y-%m-%d %H:%M:%S").to_string(),
                     current_state: UserState::Idle,
                     creating_datetime: Clock::get_current_datetime().format("%Y-%m-%d %H:%M:%S").to_string()
@@ -69,7 +70,9 @@ impl TelegramUser {
     pub async fn change_params(&mut self, message: &Message, database: Database) -> Option<String> {
         let collection:Collection<TelegramUser> = database.collection(COLLECTION_NAME);
         match self.current_state {
-            UserState::Idle => None,
+            UserState::Idle => {
+                Translator::new().translate_text(&message.clone().text.unwrap(), "uk").await
+            }
             UserState::IntervalChanging => {
                 let mut interval_string = message.clone().text.unwrap();
                 let interval_vec: Vec<&str> = interval_string.split(":").collect();
