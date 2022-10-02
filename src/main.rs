@@ -5,6 +5,7 @@ mod db_handle;
 mod app;
 mod state_handle;
 mod translator_handle;
+mod random_word_handle;
 
 use crate::app::App;
 

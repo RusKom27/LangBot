@@ -7,7 +7,9 @@ use crate::env_vars::set_vars;
 use crate::clock_handle::Clock;
 use crate::db_handle::DatabaseHandle;
 use crate::db_handle::models::TelegramUser;
+use crate::random_word_handle::RandomWord;
 use crate::telegram_api_handle::TelegramApiHandle;
+use crate::translator_handle::Translator;
 
 
 #[derive(Clone)]
@@ -68,11 +70,14 @@ impl App {
                 match TelegramUser::get_with_closer_update(self.database_api.clone()).await {
                     Some(mut user) => {
                         user.change_next_word_update_datetime(self.database_api.clone()).await;
-
                         self.telegram_api.send_message(
                             &self.telegram_api.get_message_simple_params(
                                 user.clone().user_id,
-                                &user.next_word_update_datetime
+                                &Translator::new()
+                                    .translate_text(
+                                        &RandomWord::new().get_random_word().await.expect("Get random word error!"),
+                                        "ru"
+                                    ).await.expect("Translate error!")
                             ).await
                         ).await.expect("Error send message");
 
