@@ -32,7 +32,7 @@ impl TelegramUser {
             None => {
                 let model = Self {
                     user_id,
-                    chosen_languages: Vec::new(),
+                    chosen_languages: vec![String::from("en"), String::from("ru")],
                     word_update_interval: NaiveTime::from_hms(10, 0, 0).to_string(),
                     prev_word_update_datetime: Clock::get_current_datetime().format("%Y-%m-%d %H:%M:%S").to_string(),
                     next_word_update_datetime: Clock::add_interval_time_to_time(
@@ -56,39 +56,50 @@ impl TelegramUser {
         }
     }
 
-    pub async fn change_state(&mut self, state: UserState, database: Database) -> Option<String> {
+    pub async fn change_state(&mut self, state: UserState, database: Database) -> (Option<String>, Option<Vec<Vec<&str>>>) {
         let collection:Collection<TelegramUser> = database.collection(COLLECTION_NAME);
         self.current_state = state;
         self.change_field(&collection, "current_state", self.current_state.to_string()).await;
         match self.current_state {
-            UserState::Idle => None,
-            UserState::IntervalChanging => None,
-            UserState::LanguageChanging => None,
+            UserState::Idle => (None, None),
+            UserState::IntervalChanging => (
+                Some(String::from("Change interval!")),
+                Some(vec![vec!["24:00:00", "12:00:00"],
+                          vec!["05:00:00", "01:00:00"],
+                          vec!["00:30:00", "00:10:00"],
+                ])
+            ),
+            UserState::LanguageChanging => (None, None),
         }
     }
 
-    pub async fn change_params(&mut self, message: &Message, database: Database) -> Option<String> {
+    pub async fn change_params(&mut self, message: &Message, database: Database) -> (Option<String>, Option<Vec<Vec<&str>>>) {
         let collection:Collection<TelegramUser> = database.collection(COLLECTION_NAME);
         match self.current_state {
             UserState::Idle => {
-                Translator::new().translate_text(&message.clone().text.unwrap(), "uk").await
+                (Translator::new().translate_text(&message.clone().text.unwrap(), "uk").await,
+                    Some(vec![vec![""]]))
             }
             UserState::IntervalChanging => {
-                let mut interval_string = message.clone().text.unwrap();
+                let interval_string = message.clone().text.unwrap();
                 let interval_vec: Vec<&str> = interval_string.split(":").collect();
                 match interval_vec.len() {
-                    3 => (),
-                    2 => interval_string = String::from("00:") + &*message.clone().text.unwrap(),
-                    1 => interval_string = String::from("00:00:") + &*message.clone().text.unwrap(),
-                    _ => return Some(String::from("Interval changing error!"))
+                    3 => {
+                        self.word_update_interval = interval_string.clone();
+                        self.change_field(&collection, "word_update_interval", interval_string.clone()).await;
+                        self.change_next_word_update_datetime(database.clone()).await;
+                        self.change_state(Idle, database.clone()).await;
+                        (Some(String::from("Interval was changed!")),
+                         Some(vec![vec![""]]))
+                    },
+                    _ => {
+                        println!("Error!");
+                        return (Some(String::from("Interval changing error!")),
+                                Some(vec![vec![""]]))
+                    },
                 }
-                self.word_update_interval = interval_string.clone();
-                self.change_field(&collection, "word_update_interval", interval_string.clone()).await;
-                self.change_next_word_update_datetime(database.clone()).await;
-                self.change_state(Idle, database.clone()).await;
-                Some(String::from("Interval was changed!"))
             },
-            UserState::LanguageChanging => None,
+            UserState::LanguageChanging => (None,None),
         }
     }
 

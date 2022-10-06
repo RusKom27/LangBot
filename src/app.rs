@@ -71,13 +71,14 @@ impl App {
                     Some(mut user) => {
                         user.change_next_word_update_datetime(self.database_api.clone()).await;
                         self.telegram_api.send_message(
-                            &self.telegram_api.get_message_simple_params(
+                            &self.telegram_api.get_message_params(
                                 user.clone().user_id,
                                 &Translator::new()
                                     .translate_text(
                                         &RandomWord::new().get_random_word().await.expect("Get random word error!"),
                                         "ru"
-                                    ).await.expect("Translate error!")
+                                    ).await.expect("Translate error!"),
+                                None
                             ).await
                         ).await.expect("Error send message");
 
